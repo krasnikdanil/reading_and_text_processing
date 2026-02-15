@@ -1,6 +1,9 @@
 #include "../include/text.h"
+#include <limits.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <wchar.h>
+#include <wctype.h>
 /*
  * Инцализация текста
  * */
@@ -10,14 +13,16 @@ void init_text(Text *text) {
   text->tsentence = (Sentence *)malloc(sizeof(Sentence) * text->tcapacity);
   if (!text->tsentence) {
     fprintf(stderr, "Error mammory allocation");
+    free(text->tsentence);
     exit(EXIT_FAILURE);
   }
   text->tsentence[0].ssentence = malloc(MAX_SIZE * sizeof(wchar_t));
   if (!text->tsentence[0].ssentence) {
     fprintf(stderr, "Error mammory allocation");
+    free(text->tsentence[0].ssentence);
     exit(EXIT_FAILURE);
   }
-  text->tsentence[0].ssentence[0] = '\0';
+  text->tsentence[0].ssentence[0] = L'\0';
   text->tsentence[0].scapacity = MAX_SIZE - 1;
 }
 /*
@@ -28,6 +33,7 @@ void increase_text_size(Text *text) {
   Sentence *t = realloc(text->tsentence, sizeof(Sentence) * text->tcapacity);
   if (!t) {
     fprintf(stderr, "Error mammory allocation");
+    free(t);
     exit(EXIT_FAILURE);
   }
   text->tsentence = t;
@@ -41,6 +47,7 @@ void increase_sentence_size(Sentence *tsentence, size_t len) {
                        sizeof(wchar_t) * (tsentence->scapacity + 1));
   if (!s) {
     fprintf(stderr, "Error mammory allocation");
+    free(s);
     exit(EXIT_FAILURE);
   }
   tsentence->ssentence = s;
@@ -57,9 +64,10 @@ void init_next_sentence(Text *text) {
   text->tsentence[text->count].ssentence = malloc(MAX_SIZE * sizeof(wchar_t));
   if (!text->tsentence[text->count].ssentence) {
     fprintf(stderr, "Error mammory allocation");
+    free(text->tsentence[text->count].ssentence);
     exit(EXIT_FAILURE);
   }
-  text->tsentence[text->count].ssentence[0] = '\0';
+  text->tsentence[text->count].ssentence[0] = L'\0';
 }
 /*
  * Добавление предложения в текст
@@ -71,6 +79,7 @@ void add_sentence_text(Text *text, wchar_t *buffer, bool end) {
   wchar_t *s = malloc(sizeof(wchar_t) * (wcslen(buffer) + (end ? 2 : 1)));
   if (!s) {
     fprintf(stderr, "Error memory allocation");
+    free(s);
     exit(EXIT_FAILURE);
   }
   /* Для сокращения записи*/
@@ -88,4 +97,35 @@ void add_sentence_text(Text *text, wchar_t *buffer, bool end) {
     init_next_sentence(text);
   }
   free(s);
+}
+/*
+ * Стераниме пробелов и табов в начале предожения
+ * */
+void pass_start(wchar_t **start) {
+  while (**start && iswblank(**start)) {
+    (*start)++;
+  }
+}
+/*
+ * Чтение предложения
+ * */
+void write_sentence(Text *text) {
+  wchar_t buffer[MAX_SIZE];
+  while (fgetws(buffer, MAX_SIZE - 1, stdin) != NULL) {
+    wchar_t *start = buffer;
+    wchar_t *end;
+    pass_start(&start);
+    if (wcscmp(start, L"\n") == 0) {
+      break;
+    }
+    while ((end = wcschr(start, L'.')) && *start != L'\0') {
+      *end = L'\0';
+      pass_start(&start);
+      add_sentence_text(text, start, true);
+      start = ++end;
+    }
+    if (*start != L'\0') {
+      add_sentence_text(text, start, false);
+    }
+  }
 }
